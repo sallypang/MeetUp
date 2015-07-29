@@ -1,0 +1,251 @@
+package ca.ubc.cs.cpsc210.meetup.model;
+
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.Iterator;
+import java.util.Set;
+import java.util.SortedSet;
+import java.util.TreeSet;
+
+import ca.ubc.cs.cpsc210.meetup.exceptions.IllegalSectionInitialization;
+import ca.ubc.cs.cpsc210.meetup.util.CourseTime;
+
+/*
+ * Represent a student's schedule consisting of all sections they must attend
+ */
+public class Schedule {
+
+    // Remember sections on each kind of day
+    private SortedSet<Section> MWFSections;
+    private SortedSet<Section> TRSections;
+
+    /**
+     * Constructor
+     */
+    public Schedule() {
+        MWFSections = new TreeSet<Section>();
+        TRSections = new TreeSet<Section>();
+
+    }
+
+    /**
+     * Add a section to the student's schedule
+     *
+     * @param section The section to add to the schedule.
+     */
+    public void add(Section section) throws IllegalSectionInitialization {
+        SortedSet<Section> sections = getSectionsForDayOfWeek(section.getDayOfWeek());
+        if (section.getCourse() == null)
+            throw new IllegalSectionInitialization(
+                    "Course link is not set for " + section.toString());
+
+        sections.add(section);
+    }
+
+
+    /**
+     * Retrieve the earliest start time in the schedule on a given day
+     *
+     * @param dayOfWeek The day of the week, either "MWF" or "TR"
+     * @return The CourseTime of the earliest section or null
+     */
+    public CourseTime startTime(String dayOfWeek) {
+        SortedSet<Section> sections = getSectionsForDayOfWeek(dayOfWeek);
+        Section earliestSection = sections.first();
+        if (earliestSection == null)
+            return null;
+        else
+            return earliestSection.getCourseTime();
+    }
+
+    /**
+     * Retrieve the latest start time in the schedule on a given day
+     *
+     * @param dayOfWeek The day of the week, either "MWF" or "TR"
+     * @return The CourseTime of the latest section of the day or null
+     */
+    public CourseTime endTime(String dayOfWeek) {
+        SortedSet<Section> sections = getSectionsForDayOfWeek(dayOfWeek);
+        Section latestSection = sections.last();
+        if (latestSection == null)
+            return null;
+        else
+            return latestSection.getCourseTime();
+    }
+
+    /**
+     * Find the start time of all two hour breaks less than the end time
+     *
+     * @param dayOfWeek The day of the week
+     * @return The times in HH:MM of the start time of each two-hour break
+     */
+    public Set<String> getStartTimesOfBreaks(String dayOfWeek) {
+        SortedSet<Section> sections = getSectionsForDayOfWeek(dayOfWeek);
+        Set<String> startTimes = new HashSet<String>();
+        if (sections.size() == 1) {
+            Section section = sections.first();
+            CourseTime courseTime = section.getCourseTime();
+            startTimes.add(courseTime.getEndTime());
+        } else if (sections.size() > 1) {
+            Iterator<Section> it = sections.iterator();
+            Section section = it.next();
+            String lastTime = section.getCourseTime().getEndTime();
+            while (it.hasNext()) {
+                section = it.next();
+                String nextTime = section.getCourseTime().getEndTime();
+
+                if (calculateBreakTimeInMinutes(nextTime, lastTime) >= 60) {
+                    startTimes.add(lastTime);
+                }
+                lastTime = nextTime;
+            }
+
+        }
+
+        return startTimes;
+    }
+
+    /**
+     * In which building was I before the given timeOfDay on the given dayOfWeek
+     *
+     * @param dayOfWeek The day of week of interest, "MWF" or "TR"
+     * @param timeOfDay The time of day as "HH"
+     * @return The building where the student was last or null if nowhere
+     */
+
+    public Building whereAmI2(String dayOfWeek, String timeOfDay) {
+        SortedSet<Section> sections = getSectionsForDayOfWeek(dayOfWeek);
+
+        String i = timeOfDay.substring(0, 2); //16
+       // String i1 = timeOfDay.substring(3, timeOfDay.length()); //00
+        int a1 = (Integer.parseInt(i) * 60); // 960
+      //  int a2 = Integer.parseInt(i1); // 0
+       // int a3 = a1 + a2; // 960
+
+        if (timeOfDay != null) {
+            for (Section s : sections) {
+                if (s.getDay().equals(dayOfWeek)) {
+                    int h = s.getCourseTime().getStartHours(); //12
+                    int h1 = s.getCourseTime().getStartMinutes(); //0
+                    int j = s.getCourseTime().getEndHours(); //12
+                    int j1 = s.getCourseTime().getEndMinutes(); //50
+
+                    int a = (h * 60) + h1;  // starting time
+                    int b = (j * 60) + j1;  // ending time
+                    if (a1 >= a) {  // if timeOfDay is greater than startTime
+                        sections.add(s);
+                    }
+                }
+            }
+            Section sec = sections.last();
+            return sec.getBuilding();
+        }
+        return null;
+    }
+
+    public Building whereAmI(String dayOfWeek, String timeOfDay) {
+        SortedSet<Section> sections = getSectionsForDayOfWeek(dayOfWeek);
+        // Find which section ended just before timeOfDay
+        Section lastSection = null;
+        for (Section section : sections) {
+            if (section.getCourseTime().getEndTime().compareTo(timeOfDay) <= 0) {
+                lastSection = section;
+            }
+        }
+        if (lastSection != null)
+            return lastSection.getBuilding();
+        return null;
+    }
+
+    /**
+     * Retrieve the sets for a particular day of the week
+     *
+     * @param dayOfWeek The day of week of interest, "MWF" or "TR"
+     * @return The sections on a given day of Week
+     */
+    public SortedSet<Section> getSections(String dayOfWeek) {
+        if (dayOfWeek.equals("MWF")) {
+            return Collections.unmodifiableSortedSet(MWFSections);
+        } else {
+            return Collections.unmodifiableSortedSet(TRSections);
+        }
+    }
+
+    /**
+     * Compute the break between two HH:MM strings in minutes
+     *
+     * @param second The later time
+     * @param first  The earlier time
+     * @return minutes between
+     */
+    private int calculateBreakTimeInMinutes(String second, String first) {
+        int secondInMinutesIntoDay = calculateMinutesIntoDay(second);
+        int firstInMinutesIntoDay = calculateMinutesIntoDay(first);
+        System.out.println("minutes is "
+                + (secondInMinutesIntoDay - firstInMinutesIntoDay));
+        return secondInMinutesIntoDay - firstInMinutesIntoDay;
+    }
+
+    /**
+     * Transform a HH:MM time into minutes into the day
+     *
+     * @param aTime HH:MM time
+     * @return Minutes since midnight
+     */
+    private int calculateMinutesIntoDay(String aTime) {
+        int colonIndex = aTime.indexOf(":");
+        int hours = Integer.parseInt(aTime.substring(0, colonIndex));
+        int minutes = Integer.parseInt(aTime.substring(colonIndex + 1,
+                aTime.length()));
+        return (hours * 60) + minutes;
+    }
+
+    /**
+     * Retrieve the sets for a particular day of the week
+     *
+     * @param dayOfWeek The day of week of interest, "MWF" or "TR"
+     * @return The sections on that day of week
+     */
+    public SortedSet<Section> getSectionsForDayOfWeek(String dayOfWeek) {
+        if (dayOfWeek.equals("MWF"))
+            return MWFSections;
+        else
+            return TRSections;
+    }
+
+    /**
+     * Find out if a Student has a break at a particular timeOfDay
+     * timeOfDay is in HH format;
+     * @param dayOfWeek, String timeOfDay
+     * @return boolean;
+     */
+    public boolean hasBreakAtTimeOfDay(String dayOfWeek, String timeOfDay) {
+
+        boolean b = false;
+
+        SortedSet<Section> sections = getSectionsForDayOfWeek(dayOfWeek);
+
+        //startTimes = 9:00, 11:00, and after 2 is all free
+        // timeOfDay = 10:00
+        int i1 = Integer.parseInt(timeOfDay.substring(0, 2)) * 60;
+       // int i2 = Integer.parseInt(timeOfDay.substring(3, timeOfDay.length()));
+       // int i0 = i1 + i2;
+
+        Set<String> startTimes = getStartTimesOfBreaks(dayOfWeek);
+
+       // for (Section s : sections) {
+            /*int h1 = s.getCourseTime().getEndHours() * 60; // 720
+            int h2 = s.getCourseTime().getEndMinutes();  //; 50
+            int h0 = h1 + h2; // 770*/
+            int e1 = sections.last().getCourseTime().getEndHours() * 60; // 13 * 60
+            int e2 = sections.last().getCourseTime().getEndMinutes(); // 50
+            int e0 = e1 + e2; //780
+            if (i1 >= e0) { // if 720 is greather than 780
+                b = true;
+            } else if (!startTimes.contains(timeOfDay)) {  // 9:00, 11;00 does not contain 12:00
+                b = false;
+            }
+
+        return b;
+    }
+}

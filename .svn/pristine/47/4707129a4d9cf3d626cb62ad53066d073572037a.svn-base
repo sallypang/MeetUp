@@ -1,0 +1,53 @@
+package ca.ubc.cs.cpsc210.meetup.map;
+
+import android.app.Activity;
+import android.content.Intent;
+import android.location.LocationListener;
+import android.location.LocationManager;
+import android.location.LocationProvider;
+import android.os.Bundle;
+import android.provider.Settings;
+import android.widget.TextView;
+
+/**
+ * Created by sally on 2015-04-02.
+ */
+public class LocationManagerStatus extends Activity {
+
+    private LocationManager locationManager;
+    private TextView textView;
+    private final LocationListener gpsLocationListener = new LocationListener() {
+
+        @Override
+        public void onStatusChanged(String provider, int status, Bundle extras) {
+            final String tvTxt = textView.getText().toString();
+            switch (status) {
+                case LocationProvider.AVAILABLE:
+                    textView.setText(tvTxt + "GPS available again\n");
+                    break;
+                case LocationProvider.OUT_OF_SERVICE:
+                    textView.setText(tvTxt + "GPS out of service\n");
+                    break;
+                case LocationProvider.TEMPORARILY_UNAVAILABLE:
+                    textView.setText(tvTxt + "GPS temporarily unavailable\n");
+                    break;
+            }
+        }
+
+        @Override
+        public void onProviderEnabled(String provider) {
+            textView.setText(textView.getText().toString()
+                    + "GPS Provider Enabled\n");
+        }
+
+
+
+        LocationManager service = (LocationManager) getSystemService(LOCATION_SERVICE);
+        boolean enabled = service.isProviderEnabled(LocationManager.GPS_PROVIDER);
+
+        if (enabled == false) {
+            Intent intent = new Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS);
+            startActivity(intent);
+        }
+
+    }
